@@ -56,38 +56,42 @@ class MyModal extends Modal {
         super(app);
     }
 
-onOpen() {
-    const { contentEl } = this;
-    contentEl.createEl('h2', { text: 'My Modal' });
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl('h2', { text: 'My Modal' });
 
-    const fileInputEl = contentEl.createEl('input', { type: 'file' });
-    fileInputEl.setAttribute('id', 'file-selector');
-    fileInputEl.addEventListener('change', (event) => {
-        const file = (event.target as HTMLInputElement).files?.[0];
-        if (file) {
-            console.log('Selected file:', file.name);
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const fileContent = e.target?.result as string;
-                if (fileContent) {
-                    const parsedData = JSON.parse(fileContent);
-                    const dataArray = parsedData.roots?.bookmark_bar?.children;
-                    if (dataArray) {
-                        this.treeData = dataArray;
-                        this.setAllNodesChecked(this.treeData, true);
-                        this.renderTreeView(this.treeData, null);
+        // Create a dedicated container for the tree view
+        const treeViewContainer = contentEl.createEl('div');
+        treeViewContainer.setAttribute('id', 'tree-view-container');
+        
+        const fileInputEl = contentEl.createEl('input', { type: 'file' });
+        fileInputEl.setAttribute('id', 'file-selector');
+        fileInputEl.addEventListener('change', (event) => {
+            const file = (event.target as HTMLInputElement).files?.[0];
+            if (file) {
+                console.log('Selected file:', file.name);
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const fileContent = e.target?.result as string;
+                    if (fileContent) {
+                        const parsedData = JSON.parse(fileContent);
+                        const dataArray = parsedData.roots?.bookmark_bar?.children;
+                        if (dataArray) {
+                            this.treeData = dataArray;
+                            this.setAllNodesChecked(this.treeData, true);
+                            this.renderTreeView(this.treeData, null);
+                        }
                     }
-                }
-            };
-            reader.readAsText(file);
-        }
-    });
+                };
+                reader.readAsText(file);
+            }
+        });
 
-    const selectButtonEl = contentEl.createEl('button', { text: 'Select' });
-    selectButtonEl.addEventListener('click', () => {
-        console.log('Selected!');
-    });
-}
+        const selectButtonEl = contentEl.createEl('button', { text: 'Select' });
+        selectButtonEl.addEventListener('click', () => {
+            console.log('Selected!');
+        });
+    }
 
     private setAllNodesChecked(nodes: Node[], isChecked: boolean) {
         nodes.forEach(node => {
@@ -99,11 +103,15 @@ onOpen() {
     }
 
     private renderTreeView(data: Node[], parent: Node | null) {
-        const { contentEl } = this;
-        contentEl.empty(); 
-        data.forEach((node) => {
-            this.renderTreeNode(node, contentEl, parent);
-        });
+        // Get the dedicated container for the tree view
+        const treeViewContainer = document.getElementById('tree-view-container');
+        if (treeViewContainer) {
+            // Clear the container before rendering the tree view
+            treeViewContainer.empty();
+            data.forEach((node) => {
+                this.renderTreeNode(node, treeViewContainer, parent);
+            });
+        }
     }
 
     private renderTreeNode(node: Node, parentEl: HTMLElement, parent: Node | null, depth = 0) {
