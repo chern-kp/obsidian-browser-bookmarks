@@ -1,52 +1,52 @@
 import { Plugin, MarkdownView, Editor, Modal } from 'obsidian';
 
 export default class ObsidinaBrowserBookmarks extends Plugin {
-  onload() {
-    console.log('Example plugin loaded');
-    this.addCommand({
-      id: 'get-browser-bookmarks',
-      name: 'Get Browser Bookmarks',
-      callback: this.insertBrowserBookmarks.bind(this),
-    });
+    onload() {
+        console.log('Example plugin loaded');
+        this.addCommand({
+            id: 'get-browser-bookmarks',
+            name: 'Get Browser Bookmarks',
+            callback: this.insertBrowserBookmarks.bind(this),
+        });
 
-    this.addCommand({
-      id: 'open-my-modal',
-      name: 'Open My Modal',
-      callback: () => this.openMyModal(),
-    });
-  }
-
-  private insertBrowserBookmarks() {
-    const activeView = this.getActiveMarkdownView();
-    if (activeView) {
-      const editor = activeView.editor;
-      if (editor) {
-        this.insertTextAtCursor(editor, 'Got Browser Bookmarks!');
-      }
+        this.addCommand({
+            id: 'open-my-modal',
+            name: 'Open My Modal',
+            callback: () => this.openMyModal(),
+        });
     }
-  }
 
-  private getActiveMarkdownView(): MarkdownView | null {
-    return this.app.workspace.getActiveViewOfType(MarkdownView);
-  }
+    private insertBrowserBookmarks() {
+        const activeView = this.getActiveMarkdownView();
+        if (activeView) {
+            const editor = activeView.editor;
+            if (editor) {
+                this.insertTextAtCursor(editor, 'Got Browser Bookmarks!');
+            }
+        }
+    }
 
-  private insertTextAtCursor(editor: Editor, text: string) {
-    const position = editor.getCursor();
-    editor.replaceRange(text, position);
-  }
+    private getActiveMarkdownView(): MarkdownView | null {
+        return this.app.workspace.getActiveViewOfType(MarkdownView);
+    }
 
-  openMyModal() {
-    const modal = new MyModal(this.app);
-    modal.open();
-  }
+    private insertTextAtCursor(editor: Editor, text: string) {
+        const position = editor.getCursor();
+        editor.replaceRange(text, position);
+    }
+
+    openMyModal() {
+        const modal = new MyModal(this.app);
+        modal.open();
+    }
 }
 
 interface Node {
-  name: string;
-  children?: Node[];
-  isChecked?: boolean;
-  type?: string;
-  parent?: Node;
+    name: string;
+    children?: Node[];
+    isChecked?: boolean;
+    type?: string;
+    parent?: Node;
 }
 class MyModal extends Modal {
     private treeData: Node[] = [];
@@ -60,10 +60,9 @@ class MyModal extends Modal {
         const { contentEl } = this;
         contentEl.createEl('h2', { text: 'My Modal' });
 
-        // Create a dedicated container for the tree view
         const treeViewContainer = contentEl.createEl('div');
         treeViewContainer.setAttribute('id', 'tree-view-container');
-        
+
         const fileInputEl = contentEl.createEl('input', { type: 'file' });
         fileInputEl.setAttribute('id', 'file-selector');
         fileInputEl.addEventListener('change', (event) => {
@@ -77,8 +76,8 @@ class MyModal extends Modal {
                         const parsedData = JSON.parse(fileContent);
                         const dataArray = parsedData.roots?.bookmark_bar?.children;
                         if (dataArray) {
-                            this.treeData = dataArray;
-                            this.setAllNodesChecked(this.treeData, true);
+                            this.treeData = dataArray.map((node: Node) => processNode(node));
+                            this.setAllNodesChecked(this.treeData, false);
                             this.renderTreeView(this.treeData, null);
                         }
                     }
@@ -86,11 +85,37 @@ class MyModal extends Modal {
                 reader.readAsText(file);
             }
         });
-
         const selectButtonEl = contentEl.createEl('button', { text: 'Select' });
         selectButtonEl.addEventListener('click', () => {
-            console.log('Selected!');
+            const tempTreeDataWithPrefix = this.treeData.map(node => processNode(node, 1, true));
+            const selectedNodes = this.findSelectedNodes(tempTreeDataWithPrefix);
+            const selectedNames = selectedNodes.map(node => node.name).join('\n');
+            this.insertTextIntoActiveNote(selectedNames);
         });
+    }
+
+    private insertTextIntoActiveNote(text: string) {
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (activeView) {
+            const editor = activeView.editor;
+            if (editor) {
+                const position = editor.getCursor();
+                editor.replaceRange(text, position);
+            }
+        }
+    }
+
+    private findSelectedNodes(nodes: Node[]): Node[] {
+        let selectedNodes: Node[] = [];
+        nodes.forEach(node => {
+            if (node.isChecked) {
+                selectedNodes.push(node);
+            }
+            if (node.children) {
+                selectedNodes = selectedNodes.concat(this.findSelectedNodes(node.children));
+            }
+        });
+        return selectedNodes;
     }
 
     private setAllNodesChecked(nodes: Node[], isChecked: boolean) {
@@ -103,10 +128,8 @@ class MyModal extends Modal {
     }
 
     private renderTreeView(data: Node[], parent: Node | null) {
-        // Get the dedicated container for the tree view
         const treeViewContainer = document.getElementById('tree-view-container');
         if (treeViewContainer) {
-            // Clear the container before rendering the tree view
             treeViewContainer.empty();
             data.forEach((node) => {
                 this.renderTreeNode(node, treeViewContainer, parent);
@@ -156,3 +179,14 @@ class MyModal extends Modal {
         contentEl.empty();
     }
 }
+
+const processNode = (node: Node, level = 1, addPrefixes = false): Node => {
+    const newNode = { ...node };
+    if (newNode.type === 'folder' && addPrefixes) {
+        newNode.name = "#".repeat(level) + " " + newNode.name;
+    }
+    if (newNode.children) {
+        newNode.children = newNode.children.map(childNode => processNode(childNode, level + 1, addPrefixes));
+    }
+    return newNode;
+};
