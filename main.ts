@@ -43,11 +43,13 @@ export default class ObsidinaBrowserBookmarks extends Plugin {
 
 interface Node {
     name: string;
+    url: string; // This line should already be in your interface
     children?: Node[];
     isChecked?: boolean;
     type?: string;
     parent?: Node;
 }
+
 class MyModal extends Modal {
     private treeData: Node[] = [];
     private nodeToParentMap: Map<Node, Node | null> = new Map();
@@ -184,6 +186,10 @@ const processNode = (node: Node, level = 1, addPrefixes = false): Node => {
     const newNode = { ...node };
     if (newNode.type === 'folder' && addPrefixes) {
         newNode.name = "#".repeat(level) + " " + newNode.name;
+    }
+    // Only format the name if it doesn't already contain the URL
+    if (newNode.type === 'url' && !newNode.name.includes(newNode.url)) {
+        newNode.name = `${newNode.url} - ${newNode.name}`;
     }
     if (newNode.children) {
         newNode.children = newNode.children.map(childNode => processNode(childNode, level + 1, addPrefixes));
